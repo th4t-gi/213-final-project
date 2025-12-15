@@ -30,18 +30,14 @@ build:
 	mkdir -p $(BUILD_DIR)
 
 
-$(BUILD_DIR)/kernel.o: kernel.cu kernel.h
+$(BUILD_DIR)/kernel.o: kernel.cu kernel.h | build
 	$(CUXX) $(CUXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(HDRS) | build
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-build/main: $(SRC_DIR)/%.cpp $(OBJ_DEPS) | build
-	nvcc main.o kernel.o -o my_program
-	$(CUXX) $(CXXFLAGS) $(INCLUDES_FLAGS) $^ -o $@
-# # Link executables (each one depends on its .cpp and all other .o files)
-# $(BUILD_DIR)/%: $(SRC_DIR)/%.cpp $(OBJ_DEPS) | build
-# 	$(CXX) $(CXXFLAGS) $(INCLUDES_FLAGS) $^ -o $@
+$(BUILD_DIR)/main: $(SRC_DIR)/main.cpp $(OBJ_DEPS) | build
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)
