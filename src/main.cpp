@@ -1,13 +1,12 @@
-#include <array>
-#include <cstring>
-#include <iostream>
+#include <algorithm>
 #include <mutex>
 #include <thread>
+#include <cmath>
 
 #include "utils.h"
 
 #define GPU_BATCH_SIZE 100
-#define MAX_THREADS 8
+#define MAX_THREADS 1
 
 //https://www.geeksforgeeks.org/cpp/std-mutex-in-cpp/
 std::mutex perm_mtx;
@@ -75,64 +74,48 @@ prufer_arr_t generate_Lk_with_dup(int k) {
 }
 
 
-// std::unordered_map<uint8_t, uint8_t> prufer_seq_to_branches(int N, prufer_t seq) {
 
-  // def prufer_seq_to_tree(N: int, seq: List[int]) -> Dict[int, int]:
-  //   # add implied final edge
-  //   seq = seq.copy()
-    // seq.push_back()
-  //   seq.append(max(seq))
-  //   # initialize things
-  // std::set<uint8_t> prufer_set = std::set()
-  //   prufer_set = sorted(set(seq))
-  //   branches = [0] * len(prufer_set)
-  //   degrees = [0] * len(prufer_set)
-
-  //   #for each branch, sum up all the leaves that connect to it
-  //   for i,node in enumerate(prufer_set):
-  //       for j,n in enumerate(seq[:N]):
-  //           if node == n:
-  //               branches[i] += 2**j
-    
-  //       degrees[i] = seq.count(node)
-        
-    
-  //   # for the branches in prufer seq, find index of parent and add its sum to parent
-  //   for j,n in enumerate(seq[N:]):
-  //       i = prufer_set.index(n)
-  //       branches[i] += branches[j]
-
-  //   return dict(zip(branches[::-1], degrees[::-1]))
-// }
-
-void worker(prufer_t Sk) {
+void worker(int k, prufer_t Sk) {
   prufer_arr_t perms_of_Sk = {};
   perms_of_Sk.reserve(GPU_BATCH_SIZE);
 
   long n = 0;
-  size_t batch_count = 0;
 
   // CITATION: https://www.geeksforgeeks.org/cpp/stdnext_permutation-prev_permutation-c/
   do {
-    //TODO: is valid permutation
-    perms_of_Sk[batch_count] = Sk;
-    // if (Sk.size() == 5) {
-    //   print_vector_u(Sk);
+    //Checks if permutation is a valid phylogenetic tree NOT CORRECT
+    // tree_map_t tree = prufer_seq_to_branches(k, Sk);
+    bool is_valid_tree = true;
+    //https://stackoverflow.com/questions/22880431/iterate-through-unordered-map-c
+    // for (auto entry : tree) {
+    //   if (__builtin_popcount(entry.first) == 1) {
+    //     is_valid_tree = false;
+    //     break;
+    //   }
     // }
-    
-    batch_count++;
 
-    if (batch_count == GPU_BATCH_SIZE) {
-      n += batch_count;
-      //   //TODO: Send off to gpu here
-      // print_vector(perms_of_Sk.at(0));
-      // std::cout << " batch out!" << std::endl;
-      batch_count = 0;
+    if (is_valid_tree) {
+      perms_of_Sk.push_back(Sk);
+      // print_vector_u(Sk);
+      // for (auto entry : tree) {
+      //   std::cout << entry.first << ":" << +entry.second << ", ";
+      // }
+      // std::cout << std::endl;
+    }
+
+    
+
+    if (perms_of_Sk.size() == GPU_BATCH_SIZE) {
+      n += perms_of_Sk.size();
+      //TODO: Send off to gpu here
+      
+
+      perms_of_Sk.clear();
     }
   } while (std::next_permutation(Sk.begin(), Sk.end()));
 
-  n += batch_count;
-  std::cout << "final batch out! " << n << std::endl;
+  n += perms_of_Sk.size();
+  std::cout << "worker completed " << n << std::endl;
   if (n == 90) {
     // for (prufer_t perm : perms_of_Sk) {
     //   std::cout << perm.size() << std::endl;
@@ -148,8 +131,10 @@ void worker(prufer_t Sk) {
 int main(int argc, char** argv) {
   std::vector<int> primes = {2, 3, 5};
   std::vector<int> charges = {-1, -1, 1, 1};
+  float beta_step = 0.01;
   bool default_primes = true;
   bool default_charges = true;
+  bool default_step = true;
 
   // Process user arguments for primes and charges
   for (int i = 1; i < argc; i++) {
@@ -174,6 +159,11 @@ int main(int argc, char** argv) {
         exit(2);
       }
       default_primes = false;
+    }
+    // checks for beta_step flag
+    else if (strcmp(argv[i], "-b") == 0 && i != argc - 1) {
+      beta_step = atof(argv[++i]);
+      default_step = false;
     } else {
       std::cerr << "Unrecognized parameter '" << argv[i] << "'" << std::endl;
     }
@@ -185,6 +175,9 @@ int main(int argc, char** argv) {
   std::cout << (default_charges ? "Using default charges: " : "Charges: ");
   print_vector(charges);
 
+  std::cout << (default_step ? "Using default beta step: " : "Beta Step: ");
+  printf("%.4f\n", beta_step);
+
   // Generate L_k recursively
   int k = charges.size();
   int max_size = 2 * (k - 1) - 1;
@@ -193,7 +186,7 @@ int main(int argc, char** argv) {
 
   std::cout << "L_k size: " << Lk.size() << std::endl;
 
-  // // PRINT Lk
+  // PRINT Lk
   // for (prufer_t Sk : Lk) {  
   //   for (int n : Sk) {
   //     std::cout << n << ',';
@@ -204,26 +197,33 @@ int main(int argc, char** argv) {
  
   // permute Lk
   // https://madhawapolkotuwa.medium.com/understanding-c-threads-a-complete-guide-7e783b22da6b
-  int max_threads = std::thread::hardware_concurrency();
+  int max_threads = std::min((unsigned int) MAX_THREADS, std::thread::hardware_concurrency());
+  std::cout << "Max threads: " << max_threads << std::endl;
 
   std::vector<std::thread> threads;
+  threads.reserve(max_threads);
+
   for (prufer_t Sk : Lk) {
+
     // while there are too many threads, wait for the first one to join
     while (threads.size() >= max_threads) {
+      // std::cout << "waiting...";
       if (threads.front().joinable()) {
         threads.front().join();
         threads.erase(threads.begin());
       }
     }
     // add thread to the queue
-    threads.emplace_back(worker, Sk);
+    threads.emplace_back(worker, k, Sk);
   }
 
   for (auto& thread : threads) {
     if (thread.joinable()) {
+      // std::cout << "joining thread!" << std::endl;
       thread.join();
     }
   }
+
 
 
   // prufer_arr_t perms_of_Lk{};
@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
   // int permutations = perms_of_Lk.size();
 
 
-  std::cout << permutations << std::endl;
+  std::cout << "PERMS: " << permutations << std::endl;
   // for (prufer_t Sk : perms_of_Lk) {
   //   // if (!is_valid_prufer(Sk)) {
   //   //   continue;
