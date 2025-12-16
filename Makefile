@@ -30,7 +30,7 @@ build:
 	mkdir -p $(BUILD_DIR)
 
 
-$(BUILD_DIR)/kernel.o: kernel.cu kernel.h | build
+$(BUILD_DIR)/kernel.o: $(SRC_DIR)/kernel.cu $(SRC_DIR)/kernel.h | build
 	$(CUXX) $(CUXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(HDRS) | build
