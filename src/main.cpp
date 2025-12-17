@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
   int k = params.charges.size();
   int max_size = 2 * (k - 1) - 1;
   std::cout << "Generating L_k for " << k << std::endl;
-  prufer_arr_t Lk = generate_Lk(k);
+  prufer_arr_t Lk = generate_Lk_with_dup(k);
 
   std::cout << "L_k size: " << Lk.size() << std::endl;
 

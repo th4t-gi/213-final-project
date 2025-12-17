@@ -84,8 +84,12 @@ void worker(int k, prufer_t Sk, global_params_t* params, const size_t batch_size
     prufer_seq_to_tree(k, Sk, branches, degrees);
     bool is_valid_tree = true;
     //https://stackoverflow.com/questions/22880431/iterate-through-unordered-map-c
+    if (__builtin_popcount(branches[0]) != k) {
+      is_valid_tree = false;
+      continue;
+    }
     for (int i = 0; i < k-1; i++) {
-      if (__builtin_popcount(branches[i]) == 1 || branches[i] < branches[i+1]) {
+      if (branches[i] < branches[i+1]) {
         is_valid_tree = false;
         break;
       }
