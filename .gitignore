@@ -2,3 +2,5 @@ build/**
 proposal/**
 
 **/.DS_Store
+
+src/test.c

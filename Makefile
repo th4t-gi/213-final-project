@@ -1,12 +1,12 @@
 CXX := clang++
 CUXX := nvcc
-CXXFLAGS := -std=c++20 -O3
+CXXFLAGS := -std=c++20
 CUXXFLAGS := 
 INCLUDES_FLAGS := -lsqlite3
 
 EXEC := main
 CUDEPS := kernel
-DEPS := utils
+DEPS := utils kernel
 
 # Directories
 SRC_DIR := src
@@ -37,7 +37,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(HDRS) | build
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/main: $(SRC_DIR)/main.cpp $(OBJ_DEPS) | build
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CUXX) $(CXXFLAGS) $^ -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)

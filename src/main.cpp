@@ -3,14 +3,14 @@
 #include <thread>
 #include <cmath>
 
-#include "utils.h"
-#include "kernel.h"
+#include "main.h"
 
-#define GPU_BATCH_SIZE 100
+#define GPU_BATCH_SIZE 10
 #define MAX_THREADS 1
+#define DEFAULT_BETA_STEP 0.1
 
 //https://www.geeksforgeeks.org/cpp/std-mutex-in-cpp/
-std::mutex perm_mtx;
+// params.perm_mutex = std::mutex;s
 global_params_t params;
 
 
@@ -79,7 +79,7 @@ void process_params(global_params_t* params, int argc, char** argv) {
   // initializes default parameters
   params->primes = {2, 3, 5};
   params->charges = {-1, -1, 1, 1};
-  params->beta_step = 0.01;
+  params->beta_step = DEFAULT_BETA_STEP;
   bool default_primes = true;
   bool default_charges = true;
   bool default_step = true;
@@ -94,7 +94,7 @@ void process_params(global_params_t* params, int argc, char** argv) {
     // checks for charges flag
     else if (strcmp(argv[i], "-q") == 0 && i != argc - 1) {
       // extract array from string
-      params->charges = extract_array(argv[++i]);
+      params->charges = extract_array<double>(argv[++i]);
       // throws error if array is of length 0
       if (params->charges.size() == 0) {
         std::cerr << "Unable to extract charges array" << std::endl;
@@ -105,7 +105,7 @@ void process_params(global_params_t* params, int argc, char** argv) {
     // checks for the primes flag
     else if (strcmp(argv[i], "-p") == 0 && i != argc - 1) {
       // extract array from string
-      params->primes = extract_array(argv[++i]);
+      params->primes = extract_array<int>(argv[++i]);
       // throws error if array is of length 0
       if (params->primes.size() == 0) {
         std::cerr << "Unable to extract primes array" << std::endl;
@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
       }
     }
     // add thread to the queue
-    threads.emplace_back(worker, k, Sk);
+    threads.emplace_back(worker, k, Sk, &params, GPU_BATCH_SIZE);
   }
 
   for (auto& thread : threads) {
@@ -188,6 +188,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  std::cout << "total permutations: " << params.permutations << std::endl;
 
 
   // prufer_arr_t perms_of_Lk{};
