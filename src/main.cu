@@ -3,10 +3,10 @@
 #include <thread>
 #include <cmath>
 
-#include "main.h"
+#include "worker.h"
 
 #define GPU_BATCH_SIZE 10
-#define MAX_THREADS 1
+#define MAX_THREADS 8
 #define DEFAULT_BETA_STEP 0.1
 
 //https://www.geeksforgeeks.org/cpp/std-mutex-in-cpp/
@@ -125,7 +125,11 @@ void process_params(global_params_t* params, int argc, char** argv) {
   //Computes Beta critical
   int q_max = *std::max_element(params->charges.begin(), params->charges.end());
   int q_min = *std::min_element(params->charges.begin(), params->charges.end());
-  params->beta_c = 1.0/abs(q_max*q_min);
+  double beta_c = 1.0/abs(q_max*q_min);
+
+  params->beta_count = ceil(beta_c/params->beta_step);
+  params->partition_values = (double*) malloc(sizeof(double)*params->primes.size()*params->beta_count);
+
 
   std::cout << (default_primes ? "Using default primes: " : "Primes: ");
   print_vector(params->primes);
@@ -143,9 +147,10 @@ int main(int argc, char** argv) {
   // processes the user input and saves to global struct params
   process_params(&params, argc, argv);
 
+
   // Generate L_k recursively
   int k = params.charges.size();
-  int max_size = 2 * (k - 1) - 1;
+  // int max_size = 2 * (k - 1) - 1;
   std::cout << "Generating L_k for " << k << std::endl;
   prufer_arr_t Lk = generate_Lk_with_dup(k);
 
@@ -190,29 +195,15 @@ int main(int argc, char** argv) {
 
   std::cout << "total permutations: " << params.permutations << std::endl;
 
+  for (int i = 0; i < params.primes.size(); i++) {
+    for (int j = 0; j < params.beta_count; j++) {
+      int idx = i*params.primes.size() + j;
+      printf("p: %d, b: %lf, Z_I(b): %lf\n", params.primes[i], params.beta_step*j, params.partition_values[idx]);
+    }
+    printf("\n");
+  }
 
-  // prufer_arr_t perms_of_Lk{};
-
-  // int permutations = 0;
-  // // CITATION: https://www.geeksforgeeks.org/cpp/stdnext_permutation-prev_permutation-c/
-  // for (prufer_t Sk : Lk_dup) {
-  //   do {
-  //     permutations++;
-  //   } while (std::next_permutation(Sk.begin(), Sk.end()));
-  // }
-
-  // int permutations = perms_of_Lk.size();
-
-
-  // for (prufer_t Sk : perms_of_Lk) {
-  //   // if (!is_valid_prufer(Sk)) {
-  //   //   continue;
-  //   // }
-  //   for (int n : Sk) {
-  //     std::cout << n << ",";
-  //   }
-  //   std::cout << "1" << std::endl;
-  // }
+  //TODO: Free partition_values
 
   return 0;
 }

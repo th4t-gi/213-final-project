@@ -5,8 +5,7 @@ CUXXFLAGS :=
 INCLUDES_FLAGS := -lsqlite3
 
 EXEC := main
-CUDEPS := kernel
-DEPS := utils kernel
+DEPS := utils kernel worker
 
 # Directories
 SRC_DIR := src
@@ -17,7 +16,7 @@ OBJ_DEPS := $(addprefix $(BUILD_DIR)/, $(addsuffix .o, $(DEPS)))
 EXEC_BINS := build/main
 # EXEC_BINS := $(addprefix $(BUILD_DIR)/, $(EXEC))
 # # Headers
-# HDRS := $(wildcard $(SRC_DIR)/*.h)
+HDRS := $(wildcard $(SRC_DIR)/*.h)
 
 .PHONY: all fresh clean
 
@@ -30,14 +29,14 @@ build:
 	mkdir -p $(BUILD_DIR)
 
 
-$(BUILD_DIR)/kernel.o: $(SRC_DIR)/kernel.cu $(SRC_DIR)/kernel.h | build
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cu $(HDRS) | build
 	$(CUXX) $(CUXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(HDRS) | build
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/main: $(SRC_DIR)/main.cpp $(OBJ_DEPS) | build
-	$(CUXX) $(CXXFLAGS) $^ -o $@
+$(BUILD_DIR)/main: $(SRC_DIR)/main.cu $(OBJ_DEPS) | build
+	$(CUXX) $(CUXXFLAGS) $^ -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)

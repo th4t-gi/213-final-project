@@ -24,11 +24,14 @@ typedef struct global_params {
     int* gpu_primes_ptr;
     double* gpu_charges_ptr;
     float beta_step;
-    float beta_c;
+    size_t beta_count;
 
-    std::mutex perm_mutex;
+    std::mutex output_mutex;
     size_t permutations;
+    double* partition_values;
 } global_params_t;
+
+void prufer_seq_to_tree(int N, prufer_t seq, code_t branches[], degree_t degrees[]);
 
 template <typename T>
 std::vector<T> extract_array(char* str) {
