@@ -86,7 +86,7 @@ __global__ void kernel(global_params_t* params, const size_t batch_size, const s
   // }
 
   //add summand to current value of that partition function  
-  int partition_idx = blockIdx.x * blockDim.x + blockIdx.y;
+  int partition_idx = blockIdx.y * gridDim.x + blockIdx.x;
   // printf("p: %d, b: %lf, idx: %d, x: %d, y: %d, blockdim: %d, summand: %f\n", prime, beta, partition_idx, blockIdx.x, blockIdx.y, blockDim.x, summand);
   atomicAdd((float*) &partition_values[partition_idx], summand);
   // partition_values[partition_idx] += summand;
