@@ -7,7 +7,7 @@
 
 // GLOBAL PROGRAM PARAMETERS
 // primarily related to concurrency/parralellism aspects of program
-#define GPU_BATCH_SIZE 10
+#define GPU_BATCH_SIZE 1000
 #define MAX_THREADS 8
 #define DEFAULT_BETA_STEP 0.1
 
@@ -108,7 +108,7 @@ void process_params(global_params_t* params, int argc, char** argv) {
   double beta_c = 1.0/abs(q_max*q_min);
 
   params->beta_count = ceil(beta_c/params->beta_step);
-  params->partition_values = (double*) malloc(sizeof(double)*params->primes.size()*params->beta_count);
+  params->output_matrix = (double*) malloc(sizeof(double)*params->primes.size()*params->beta_count);
 
 
   std::cout << (default_primes ? "Using default primes: " : "Primes: ");
@@ -170,12 +170,12 @@ int main(int argc, char** argv) {
   for (int i = 0; i < params.primes.size(); i++) {
     for (int j = 0; j < params.beta_count; j++) {
       int idx = i*params.primes.size() + j;
-      printf("p: %d, b: %lf, Z_I(b): %lf\n", params.primes[i], params.beta_step*j, params.partition_values[idx]);
+      printf("p: %d, b: %lf, Z_I(b): %lf\n", params.primes[i], params.beta_step*j, params.output_matrix[idx]);
     }
     printf("\n");
   }
 
-  free(params.partition_values);
+  free(params.output_matrix);
 
   return 0;
 }

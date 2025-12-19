@@ -3,12 +3,12 @@
 /**
  * Generates branches of phylogenetic tree from prufer sequence
  *
- * \param N number of leaves in tree
+ * \param k number of leaves in tree
  * \param seq prufer sequence to convert
  * \param branches array to save branch data to
  * \param degrees array to save degree data to
  */
-void prufer_seq_to_tree(const int N, prufer_t seq, code_t branches[], degree_t degrees[]) {
+void prufer_seq_to_tree(const int k, prufer_t seq, code_t branches[], degree_t degrees[]) {
   int prufer_max = *std::max_element(seq.begin(), seq.end());
 
   // add implied edge to prufer sequence
@@ -17,11 +17,11 @@ void prufer_seq_to_tree(const int N, prufer_t seq, code_t branches[], degree_t d
   for (size_t i = 0; i < seq.size(); i++) {
     uint8_t branch_index = seq[i] - 1;
     // for each leave index, add the binary encoded value to the branch index
-    if (i < N) {
+    if (i < k) {
       branches[branch_index] += (1 << i);
     } else {
       // for indecies in the prufer seq that refer to branches, find index of parent and add its sum to parent
-      branches[branch_index] += branches[prufer_max + N - i - 1];
+      branches[branch_index] += branches[prufer_max + k - i - 1];
     }
   }
 

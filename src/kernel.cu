@@ -9,9 +9,9 @@
  * \param k number of particles/charges
  * \param branches_arr buffer of branch data batch
  * \param degrees_arr buffer of degree data batch
- * \param gpu_partition_values pointer to output matrix on the gpu
+ * \param gpu_output_matrix pointer to output matrix on the gpu
  */
-void compute_batch(global_params_t* params, global_params_t* gpu_params, const size_t batch_size, const size_t k, code_t* branches_arr, degree_t* degrees_arr, float* gpu_partition_values) {
+void compute_batch(global_params_t* params, global_params_t* gpu_params, const size_t batch_size, const size_t k, code_t* branches_arr, degree_t* degrees_arr, float* gpu_output_matrix) {
   //declares gpu tree data buffers
   code_t* gpu_branches_arr;
   degree_t* gpu_degrees_arr;
@@ -39,7 +39,7 @@ void compute_batch(global_params_t* params, global_params_t* gpu_params, const s
 
   // Invocation of gpu kernel
   dim3 blockDims(params->primes.size(), params->beta_count);
-  kernel<<<blockDims, batch_size>>>(gpu_params, batch_size, k, gpu_branches_arr, gpu_degrees_arr, gpu_partition_values);
+  kernel<<<blockDims, batch_size>>>(gpu_params, batch_size, k, gpu_branches_arr, gpu_degrees_arr, gpu_output_matrix);
 
   //Synchronize the gpu 
   if (cudaDeviceSynchronize() != cudaSuccess) {
@@ -115,14 +115,11 @@ __device__ double term(double beta, int p, int k, code_t* branches, degree_t* de
  * \param k number of particles/charges
  * \param branches_arr buffer of branch data batch
  * \param degrees_arr buffer of degree data batch
- * \param gpu_partition_values pointer to output matrix on the gpu
+ * \param gpu_output_matrix pointer to output matrix on the gpu
  */
-__global__ void kernel(global_params_t* gpu_params, const size_t batch_size, const size_t k, code_t* branches_arr, degree_t* degrees_arr, float* gpu_partition_values) {
-
+__global__ void kernel(global_params_t* gpu_params, const size_t batch_size, const size_t k, code_t* branches_arr, degree_t* degrees_arr, float* gpu_output_matrix) {
   int prime = gpu_params->gpu_primes_ptr[blockIdx.x];
-
   double beta = blockIdx.y * gpu_params->beta_step;
-  // printf("prime: %d, beta: %lf\n", prime, beta);
 
   // Gets address of current branches array in contiguous buffer;
   code_t* branches = &branches_arr[threadIdx.x * k];
@@ -131,16 +128,7 @@ __global__ void kernel(global_params_t* gpu_params, const size_t batch_size, con
   //compute summand of Z_N(\beta)
   float summand = term(beta, prime, k, branches, degrees, gpu_params->gpu_charges_ptr);
 
-  // if (prime == 2 && beta < 0.15) {
-  // }
-
   //add summand to current value of that partition function  
   int partition_idx = blockIdx.y * gridDim.x + blockIdx.x;
-  // printf("p: %d, b: %lf, idx: %d, x: %d, y: %d, blockdim: %d, summand: %f\n", prime, beta, partition_idx, blockIdx.x, blockIdx.y, blockDim.x, summand);
-  atomicAdd((float*) &gpu_partition_values[partition_idx], summand);
-  // partition_values[partition_idx] += summand;
-
-  // if (prime == 2 && beta < 0.15) {
-  //   printf("@p: %d, b: %lf, Z_I(b): %lf\n", prime, beta, partition_values[partition_idx]);
-  // }
+  atomicAdd((float*) &gpu_output_matrix[partition_idx], summand);
 }

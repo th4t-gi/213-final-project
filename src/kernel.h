@@ -10,7 +10,7 @@ void compute_batch(
     const size_t k,
     code_t* branches_arr,
     degree_t* degrees_arr,
-    float* gpu_partition_values);
+    float* gpu_output_matrix);
 
 __device__ int falling_factorial(int x, int n);
 __device__ double interaction_energy(code_t J, int k, double* charges);
@@ -22,4 +22,4 @@ __global__ void kernel(
     const size_t k,
     code_t* branches_arr,
     degree_t* degrees_arr,
-    float* partition_values);
+    float* output_matrix);

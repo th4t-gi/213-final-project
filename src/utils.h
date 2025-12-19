@@ -28,10 +28,10 @@ typedef struct global_params {
 
     std::mutex output_mutex;
     size_t permutations;
-    double* partition_values;
+    double* output_matrix;
 } global_params_t;
 
-void prufer_seq_to_tree(int N, prufer_t seq, code_t branches[], degree_t degrees[]);
+void prufer_seq_to_tree(int k, prufer_t seq, code_t branches[], degree_t degrees[]);
 
 /**
  * returns vector extracted from comma seperated string

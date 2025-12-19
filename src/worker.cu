@@ -15,13 +15,13 @@ void worker(int k, prufer_t Sk, global_params_t* params, const size_t batch_size
 
   size_t charges_bytes = sizeof(double)*k;
   size_t primes_bytes = sizeof(int)*params->primes.size();
-  size_t partition_values_bytes = sizeof(float)*params->primes.size()* params->beta_count;
+  size_t output_matrix_bytes = sizeof(float)*params->primes.size()* params->beta_count;
 
   //declares gpu buffers for params and output matrix
   global_params_t* gpu_params;
-  float* gpu_partition_values;
+  float* gpu_output_matrix;
   //allocates for thread_specific output matrix
-  float* cpu_partition_values = (float*) malloc(partition_values_bytes);
+  float* cpu_output_matrix = (float*) malloc(output_matrix_bytes);
 
   //Transfers all global parameter data over to gpu
   if (cudaMalloc(&params->gpu_charges_ptr, charges_bytes) != cudaSuccess) {
@@ -48,7 +48,7 @@ void worker(int k, prufer_t Sk, global_params_t* params, const size_t batch_size
     fprintf(stderr, "Failed to coppy boards to the GPU.");
     exit(2);
   }
-  if (cudaMalloc(&gpu_partition_values, partition_values_bytes) != cudaSuccess) {
+  if (cudaMalloc(&gpu_output_matrix, output_matrix_bytes) != cudaSuccess) {
     fprintf(stderr, "Failed to allocate partition values array on GPU");
     exit(2);
   }
@@ -93,7 +93,7 @@ void worker(int k, prufer_t Sk, global_params_t* params, const size_t batch_size
       n += batch_size;
 
       //Send batch off
-      compute_batch(params, gpu_params, batch_count, k, branches_arr, degrees_arr, gpu_partition_values);
+      compute_batch(params, gpu_params, batch_count, k, branches_arr, degrees_arr, gpu_output_matrix);
 
       //zero out whole buffers
       for (int i = 0; i < batch_size*k; i++) {
@@ -106,11 +106,11 @@ void worker(int k, prufer_t Sk, global_params_t* params, const size_t batch_size
 
   //send off final batch (batch_count < batch_size)
   n += batch_count;
-  compute_batch(params, gpu_params, batch_count, k, branches_arr, degrees_arr, gpu_partition_values);
+  compute_batch(params, gpu_params, batch_count, k, branches_arr, degrees_arr, gpu_output_matrix);
 
 
   // Copy partition values data back from GPU
-  if (cudaMemcpy(cpu_partition_values, gpu_partition_values, partition_values_bytes, cudaMemcpyDeviceToHost) !=
+  if (cudaMemcpy(cpu_output_matrix, gpu_output_matrix, output_matrix_bytes, cudaMemcpyDeviceToHost) !=
       cudaSuccess) {
     fprintf(stderr, "Failed to copy partition values back from the GPU\n");
   }
@@ -120,12 +120,12 @@ void worker(int k, prufer_t Sk, global_params_t* params, const size_t batch_size
   params->output_mutex.lock();
   params->permutations += n;
   for (int i = 0; i < params->primes.size()* params->beta_count; i++) {
-    params->partition_values[i] += cpu_partition_values[i];
+    params->output_matrix[i] += cpu_output_matrix[i];
   }
   params->output_mutex.unlock();
 
   std::cout << "worker computed " << n << " permutations." << std::endl;
 
-  free(cpu_partition_values);
-  cudaFree(gpu_partition_values);
+  free(cpu_output_matrix);
+  cudaFree(gpu_output_matrix);
 }
