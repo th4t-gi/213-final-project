@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include "utils.h"
 
 void compute_batch(
@@ -10,6 +11,10 @@ void compute_batch(
     code_t* branches_arr,
     degree_t* degrees_arr,
     float* gpu_partition_values);
+
+__device__ int falling_factorial(int x, int n);
+__device__ double interaction_energy(code_t J, int k, double* charges);
+__device__ double term(double beta, int p, int k, code_t* branches, degree_t* degrees, double* charges);
 
 __global__ void kernel(
     global_params_t* params,

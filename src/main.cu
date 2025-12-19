@@ -5,47 +5,19 @@
 
 #include "worker.h"
 
+// GLOBAL PROGRAM PARAMETERS
+// primarily related to concurrency/parralellism aspects of program
 #define GPU_BATCH_SIZE 10
 #define MAX_THREADS 8
 #define DEFAULT_BETA_STEP 0.1
 
-//https://www.geeksforgeeks.org/cpp/std-mutex-in-cpp/
-// params.perm_mutex = std::mutex;s
 global_params_t params;
 
-
-// counted by https://oeis.org/A000070
-prufer_arr_t generate_Lk(int k) {
-  // BASE CASE:
-  if (k <= 2) {
-    prufer_arr_t base{{1}};
-    return base;
-  }
-
-  // RECURSIVE CASE:
-  prufer_arr_t Lk = {};
-
-  for (prufer_t S : generate_Lk(k - 1)) {
-    S.insert(S.begin(), 1);
-    Lk.push_back(S);
-
-    int ones = std::count(S.begin(), S.end(), 1);
-    int twos = std::count(S.begin(), S.end(), 2);
-
-    if (ones < 2 || ones >= twos) {
-      prufer_t S2 = S;
-      for (int i = 0; i < S2.size(); i++) {
-        S2[i]++;
-      }
-      S2.insert(S2.begin(), 1);
-      Lk.push_back(S2);
-    }
-  }
-
-  return Lk;
-}
-
-
+/**
+ * Recursively generates "prufer sets" (i.e. prufer codes for unlabeled trees) to be s
+ *
+ * \param k number of leaves of trees
+ */
 prufer_arr_t generate_Lk_with_dup(int k) {
   // BASE CASE:
   if (k <= 2) {
@@ -55,12 +27,12 @@ prufer_arr_t generate_Lk_with_dup(int k) {
 
   // RECURSIVE CASE:
   prufer_arr_t Lk = {};
-  // L_k will always have 2**k elements since |L_k| = 2*|L_{k-1}| (and |L_3| = 2).
-  Lk.reserve(pow(2, k));
+  // L_k will always have 2**(k-3) elements since |L_k| = 2*|L_{k-1}| (and |L_3| = 2).
+  Lk.reserve(2UL << (k-3));
 
   for (prufer_t S : generate_Lk_with_dup(k - 1)) {
     prufer_t S2 = S;
-    // assuming that the arrays are sorted and we're adding to the back
+    // assuming that the arrays are sorted and we're adding to the back, then max elt is always last index
     int max = S[S.size() - 1];
 
     S.push_back(max);
@@ -74,7 +46,13 @@ prufer_arr_t generate_Lk_with_dup(int k) {
   return Lk;
 }
 
-
+/**
+ * Recursively generates "prufer sets" (i.e. prufer codes for unlabeled trees) to be s
+ *
+ * \param params struct to save processed user inputs to
+ * \param argc number of arguments in argv
+ * \param argv array of arguments given by main()
+ */
 void process_params(global_params_t* params, int argc, char** argv) {
   // initializes default parameters
   params->primes = {2, 3, 5};
@@ -84,16 +62,17 @@ void process_params(global_params_t* params, int argc, char** argv) {
   bool default_charges = true;
   bool default_step = true;
 
-  // Process user arguments for primes and charges
+  // Iterates through elements of argv to find primes, charges, and beta_step
   for (int i = 1; i < argc; i++) {
 
+    //prints help message and exits
     if (strcmp(argv[i], "--help") == 0) {
       printf("this is a help message!");
       exit(0);
     }
     // checks for charges flag
     else if (strcmp(argv[i], "-q") == 0 && i != argc - 1) {
-      // extract array from string
+      // extract array from next argument 
       params->charges = extract_array<double>(argv[++i]);
       // throws error if array is of length 0
       if (params->charges.size() == 0) {
@@ -104,7 +83,7 @@ void process_params(global_params_t* params, int argc, char** argv) {
     }
     // checks for the primes flag
     else if (strcmp(argv[i], "-p") == 0 && i != argc - 1) {
-      // extract array from string
+      // extract array from next argument 
       params->primes = extract_array<int>(argv[++i]);
       // throws error if array is of length 0
       if (params->primes.size() == 0) {
@@ -115,6 +94,7 @@ void process_params(global_params_t* params, int argc, char** argv) {
     }
     // checks for beta_step flag
     else if (strcmp(argv[i], "-b") == 0 && i != argc - 1) {
+      // extract beta_step from next argument 
       params->beta_step = atof(argv[++i]);
       default_step = false;
     } else {
@@ -147,25 +127,16 @@ int main(int argc, char** argv) {
   // processes the user input and saves to global struct params
   process_params(&params, argc, argv);
 
-
-  // Generate L_k recursively
+  // Generates L_k recursively
   int k = params.charges.size();
-  // int max_size = 2 * (k - 1) - 1;
   std::cout << "Generating L_k for " << k << std::endl;
   prufer_arr_t Lk = generate_Lk_with_dup(k);
 
   std::cout << "L_k size: " << Lk.size() << std::endl;
 
-  // PRINTS Lk
-  // for (prufer_t Sk : Lk) {  
-  //   for (int n : Sk) {
-  //     std::cout << n << ',';
-  //   }
-  //   std::cout << std::endl;
-  // }
-
   // generates a thread for each element of Lk and concurrently generates permutations of that element
-  // https://madhawapolkotuwa.medium.com/understanding-c-threads-a-complete-guide-7e783b22da6b
+  // CITATION: https://madhawapolkotuwa.medium.com/understanding-c-threads-a-complete-guide-7e783b22da6b
+  // This article helped me figure out how to use the std library thread interface.
   int max_threads = std::min((unsigned int) MAX_THREADS, std::thread::hardware_concurrency());
   std::cout << "Max threads: " << max_threads << std::endl;
 
@@ -186,15 +157,16 @@ int main(int argc, char** argv) {
     threads.emplace_back(worker, k, Sk, &params, GPU_BATCH_SIZE);
   }
 
+  // joins all the threads
   for (auto& thread : threads) {
     if (thread.joinable()) {
-      // std::cout << "joining thread!" << std::endl;
       thread.join();
     }
   }
 
   std::cout << "total permutations: " << params.permutations << std::endl;
 
+  //prints the outputs matrix 
   for (int i = 0; i < params.primes.size(); i++) {
     for (int j = 0; j < params.beta_count; j++) {
       int idx = i*params.primes.size() + j;
@@ -203,7 +175,7 @@ int main(int argc, char** argv) {
     printf("\n");
   }
 
-  //TODO: Free partition_values
+  free(params.partition_values);
 
   return 0;
 }

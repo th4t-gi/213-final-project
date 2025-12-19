@@ -33,20 +33,28 @@ typedef struct global_params {
 
 void prufer_seq_to_tree(int N, prufer_t seq, code_t branches[], degree_t degrees[]);
 
+/**
+ * returns vector extracted from comma seperated string
+ */
 template <typename T>
 std::vector<T> extract_array(char* str) {
   std::vector<T> arr;
 
   // CITATION: https://stackoverflow.com/a/26228023 and `man strsep`
+  // strsep is the best way to break a string up by a delimiter 
   char* token;
   while ((token = strsep(&str, ","))) {
     T n = std::stod(token);
+    //if n is a valid number (i.e. not 0)
     if (n != (T) 0) arr.push_back(n);
   }
 
   return arr;
 }
 
+/**
+ * prints vector `v` to std out
+ */
 template <typename T>
 void print_vector(std::vector<T> v) {
   for (T entry : v) {
